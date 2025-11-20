@@ -1,0 +1,159 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+ReStart MVP v3
+- Upload PDF OR paste text
+- Detect simple skills per sector
+- Detect main language of CV
+- Allow counselor to download a short text report
+"""
+
+import re
+import streamlit as st
+import pdfplumber
+from langdetect import detect, LangDetectException
+
+st.set_page_config(page_title="ReStart – Skill Extractor", page_icon="🟣")
+
+st.title("ReStart – Skill Extractor (MVP v3)")
+st.write("Upload a refugee CV (or paste text) to get a rough idea of skills and job sectors.")
+
+# ------- File Upload -------------
+uploaded_file = st.file_uploader("Upload CV file (PDF only)", type=["pdf"])
+cv_text = ""
+
+if uploaded_file is not None:
+    try:
+        with pdfplumber.open(uploaded_file) as pdf:
+            for page in pdf.pages:
+                cv_text += page.extract_text() or ""
+        st.success("PDF text extracted successfully! 🎉")
+    except Exception as e:
+        st.error(f"Could not extract text from PDF. Error: {e}")
+
+# ------- Paste fallback -------------
+st.subheader("Or paste CV text below:")
+paste_text = st.text_area("Paste text here:", height=200)
+
+if paste_text.strip():
+    cv_text = paste_text
+
+st.caption("Example content: work experience, jobs, tasks, skills, etc.")
+
+# ---------- Skills Dictionary ----------
+SKILLS = {
+    "logistics": [
+        "warehouse", "forklift", "picking", "packing",
+        "inventory", "logistics", "order picker", "stockroom"
+    ],
+    "hospitality": [
+        "cleaning", "housekeeping", "kitchen", "dishwasher",
+        "hotel", "restaurant", "room service"
+    ],
+    "retail": [
+        "cashier", "shop", "store", "customer service",
+        "sales", "retail", "cash register"
+    ],
+    "tech": [
+        "python", "java", "it support", "helpdesk",
+        "software", "computer", "technical support"
+    ],
+}
+
+# ---------- Analyze Button ----------
+if st.button("Analyze CV"):
+    if not cv_text.strip():
+        st.warning("Please upload a CV or paste some text first.")
+    else:
+        st.success("CV received. Here is a first rough analysis 👇")
+
+        text_lower = cv_text.lower()
+        sector_matches = {sector: [] for sector in SKILLS}
+
+        for sector, keywords in SKILLS.items():
+            for kw in keywords:
+                if re.search(rf"\b{re.escape(kw)}\b", text_lower):
+                    sector_matches[sector].append(kw)
+
+        # ---------- Language detection ----------
+        st.subheader("Detected language (rough):")
+        try:
+            lang_code = detect(cv_text)
+            st.write(f"Main language detected: **{lang_code}**")
+        except LangDetectException:
+            st.write("Could not reliably detect language (text too short or noisy).")
+
+        # ---------- Show detected skills ----------
+        st.subheader("Detected skills by sector (very rough):")
+        any_match = False
+        for sector, kws in sector_matches.items():
+            if kws:
+                any_match = True
+                st.write(f"**{sector.capitalize()}** → {', '.join(sorted(set(kws)))}")
+
+        if not any_match:
+            st.write("No sector matches yet. This is only an MVP — we’ll improve it!")
+
+        # ---------- Suggested jobs ----------
+        st.subheader("Suggested job directions:")
+
+        suggestions = []
+        if sector_matches["logistics"]:
+            suggestions.append(
+                "- 📦 Logistics & Warehouse: warehouse assistant, order picker, stockroom worker"
+            )
+        if sector_matches["hospitality"]:
+            suggestions.append(
+                "- 🧹 Hospitality & Cleaning: cleaner, kitchen assistant, hotel staff"
+            )
+        if sector_matches["retail"]:
+            suggestions.append(
+                "- 🛒 Retail & Customer Service: shop assistant, cashier, store support"
+            )
+        if sector_matches["tech"]:
+            suggestions.append(
+                "- 💻 Tech & Digital: IT support, helpdesk, junior IT roles"
+            )
+
+        if suggestions:
+            for s in suggestions:
+                st.write(s)
+        else:
+            st.write("No job suggestions yet – once the model improves, this will be richer.")
+
+        # ---------- Simple counselor report ----------
+        st.subheader("Downloadable counselor summary")
+
+        report_lines = []
+        report_lines.append("ReStart – Candidate Summary")
+        report_lines.append("--------------------------------")
+        try:
+            report_lines.append(f"Detected language: {lang_code}")
+        except Exception:
+            report_lines.append("Detected language: unknown")
+
+        report_lines.append("\nDetected skills by sector:")
+        if any_match:
+            for sector, kws in sector_matches.items():
+                if kws:
+                    report_lines.append(f"- {sector.capitalize()}: {', '.join(sorted(set(kws)))}")
+        else:
+            report_lines.append("- No obvious skills detected (MVP limitations).")
+
+        report_lines.append("\nSuggested job directions:")
+        if suggestions:
+            for s in suggestions:
+                report_lines.append(s)
+        else:
+            report_lines.append("- None yet.")
+
+        report_text = "\n".join(report_lines)
+
+        st.download_button(
+            label="⬇️ Download candidate summary (text)",
+            data=report_text,
+            file_name="restart_candidate_summary.txt",
+            mime="text/plain",
+        )
+
+st.info("MVP v3: PDF upload, basic language detection, simple report download. Next: better NLP + ESCO mapping.")
