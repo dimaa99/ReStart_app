@@ -20,7 +20,7 @@ from openai import OpenAI  # NEW: LLM client
 st.set_page_config(page_title="ReStart – Skill Extractor", page_icon="🟣")
 
 st.title("ReStart – Skill Extractor (MVP v4)")
-st.write("Upload a refugee CV (or paste text) to get a rough idea of skills and job sectors.")
+st.write("Upload a CV (or paste text) to get a rough idea of skills and job sectors.")
 
 # OpenAI client – reads key from Streamlit secrets
 # Make sure you set OPENAI_API_KEY in Streamlit → Settings → Secrets
