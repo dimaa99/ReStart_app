@@ -1,0 +1,6 @@
+streamlit
+langdetect
+pdfplumber
+pdfminer.six
+pypdfium2
+openai
